@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>反向待办清单</title>
+  <style>
+    :root {
+      --bg: #0f1226;
+      --card: #171a35;
+      --text: #e8ebff;
+      --muted: #9aa3d9;
+      --accent: #7c9cff;
+      --accent-2: #ff7cc9;
+      --success: #7cffb1;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(1200px 600px at 10% 10%, #1a1f4a 0%, #0f1226 60%);
+      color: var(--text); min-height: 100vh; display: flex; justify-content: center; align-items: center;
+      padding: 24px;
+    }
+    .app {
+      width: min(920px, 100%); background: var(--card); border-radius: 16px; padding: 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    h1 { margin: 0; font-size: 28px; }
+    .tag {
+      padding: 6px 12px; border-radius: 999px; background: rgba(124,156,255,.2); color: var(--accent);
+      font-size: 12px; letter-spacing: .5px;
+    }
+    .subtitle { margin: 10px 0 22px; color: var(--muted); }
+    .panel { display: grid; grid-template-columns: 1.2fr .8fr; gap: 24px; }
+    @media (max-width: 820px){ .panel{ grid-template-columns: 1fr; } }
+    .card { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 14px; padding: 18px; }
+    .row { display: flex; gap: 12px; }
+    input, textarea {
+      width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1);
+      background: #10132a; color: var(--text); outline: none;
+    }
+    button {
+      border: none; background: var(--accent); color: #0b0e20; padding: 12px 16px; border-radius: 10px;
+      font-weight: 700; cursor: pointer; transition: transform .05s ease;
+    }
+    button:active { transform: translateY(1px); }
+    .ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+    .item {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px; border-radius: 10px; background: rgba(124,156,255,.08);
+    }
+    .item small { color: var(--muted); }
+    .badge { font-size: 11px; color: #0b0e20; background: var(--success); padding: 4px 8px; border-radius: 999px; }
+    .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+    .stat { background: #10132a; border-radius: 10px; padding: 12px; text-align: center; }
+    .stat h2 { margin: 6px 0 0; }
+    .quote { font-size: 14px; color: var(--muted); margin-top: 10px; }
+    .footer { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .pill { padding: 6px 10px; border-radius: 999px; background: rgba(255,124,201,.15); color: var(--accent-2); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>反向待办清单</h1>
+      <span class="tag">没做也值得记录</span>
+    </header>
+    <p class="subtitle">把“没做成”的事情写下来，给努力但未完成的自己一个轻轻的赞。</p>
+
+    <div class="panel">
+      <section class="card">
+        <div class="row">
+          <input id="task" placeholder="今天没做的事，比如：没去健身/没回那条消息" />
+          <button id="add">记录</button>
+        </div>
+        <div class="list" id="list"></div>
+      </section>
+
+      <aside class="card">
+        <div class="stats">
+          <div class="stat">
+            <small>今日未完成</small>
+            <h2 id="count">0</h2>
+          </div>
+          <div class="stat">
+            <small>自我宽容</small>
+            <h2 id="mood">高</h2>
+          </div>
+          <div class="stat">
+            <small>虚假成就</small>
+            <h2 id="badge">+1</h2>
+          </div>
+        </div>
+        <p class="quote" id="quote">“没做成，也是在路上。”</p>
+        <div class="footer">
+          <button class="ghost" id="export">导出 Markdown</button>
+          <button class="ghost" id="clear">清空</button>
+        </div>
+        <div style="margin-top:10px">
+          <span class="pill">#反效率</span>
+          <span class="pill">#治愈系</span>
+          <span class="pill">#毫无用处</span>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+<script>
+  const task = document.getElementById('task');
+  const list = document.getElementById('list');
+  const count = document.getElementById('count');
+  const badge = document.getElementById('badge');
+  const quote = document.getElementById('quote');
+
+  const quotes = [
+    '“没做成，也是在路上。”',
+    '“放过自己，效率不是唯一答案。”',
+    '“今天没做到，明天也不一定。”',
+    '“失败清单，诚实且可爱。”',
+    '“你不是懒，只是没空。”'
+  ];
+
+  function render() {
+    const items = JSON.parse(localStorage.getItem('reverseTodo') || '[]');
+    list.innerHTML = '';
+    items.forEach((t, i) => {
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.innerHTML = `<div><strong>${t.text}</strong><br><small>${t.time}</small></div><span class="badge">没做也很棒</span>`;
+      list.appendChild(el);
+    });
+    count.textContent = items.length;
+    badge.textContent = `+${items.length}`;
+    quote.textContent = quotes[Math.floor(Math.random() * quotes.length)];
+  }
+
+  document.getElementById('add').onclick = () => {
+    const val = task.value.trim();
+    if (!val) return;
+    const items = JSON.parse(localStorage.getItem('reverseTodo') || '[]');
+    items.unshift({ text: val, time: new Date().toLocaleString() });
+    localStorage.setItem('reverseTodo', JSON.stringify(items));
+    task.value = '';
+    render();
+  };
+
+  document.getElementById('clear').onclick = () => {
+    localStorage.removeItem('reverseTodo');
+    render();
+  };
+
+  document.getElementById('export').onclick = () => {
+    const items = JSON.parse(localStorage.getItem('reverseTodo') || '[]');
+    const lines = ['# 反向待办清单', '', `生成时间：${new Date().toLocaleString()}`, ''];
+    items.forEach((t, i) => lines.push(`${i+1}. ${t.text} (${t.time})`));
+    const blob = new Blob([lines.join('\n')], {type: 'text/markdown'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'reverse-todo.md';
+    a.click();
+  };
+
+  render();
+</script>
+</body>
+</html>
